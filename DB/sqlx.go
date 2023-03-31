@@ -18,7 +18,6 @@ type ReadQuerierX interface {
 
 	Get(dest interface{}, query string, args ...interface{}) error
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	MapperFunc(mf func(string) string)
 	NamedQuery(query string, arg interface{}) (*sqlx.Rows, error)
 	NamedQueryContext(ctx context.Context, query string, arg interface{}) (*sqlx.Rows, error)
 	PrepareNamed(query string) (*sqlx.NamedStmt, error)
