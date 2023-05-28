@@ -16,49 +16,48 @@ const driverName = "postgres"
 
 // Options is the options for connecting to the database.
 // See https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS
-type Options struct {
+type DbOptions struct {
 	// Host is the host name or IP address of the database server.
-	Host string
+	host string
 
 	// Port is the port number of the database server. default: 5432
-	Port string
+	port string
 
 	// Username is the username to use when connecting to the database.
-	Username string
+	username string
 
 	// Password is the password to use when connecting to the database.
-	Password string
+	password string
 
 	// Database is the name of the database to connect to.
-	Database string
+	database string
 
 	// SSLMode is the SSL mode to use when connecting to the database.
-	SSLMode string
+	sslMode string
 
 	// SSLCert is the path to the SSL certificate to use when connecting to the database.
-	SSLCert string
+	sslCert string
 
-	Monitoring MonitoringOpts
+	monitoring MonitoringOpts
 }
 
 type MonitoringOpts struct {
 	// Enabled is the flag to enable monitoring.
-	Enabled bool
+	enabled bool
 
 	// Tracing is the flag to enable tracing.
-	Tracing bool
+	tracing bool
 }
 
-// New returns a new instance of a postgres database.
-func NewFromOption(opts Options) (db.Database, error) {
-	// Parse database url
-	url := fmt.Sprintf(
-		"%s://%s:%s@%s:%s/%s?sslmode=%s",
-		driverName, opts.Username, opts.Password, opts.Host, opts.Port, opts.Database, opts.SSLMode,
-	)
+// DbOpt is option pattern implementation
+type DbOpt func(*DbOptions)
 
-	if opts.SSLMode != "disable" {
-		url = fmt.Sprintf("%s&sslrootcert=%s", url, opts.SSLCert)
+// New returns a new instance of a postgres database.
+func NewDb(opts ...DbOpt) (db.Database, error) {
+	// Parse database url
+	o := &DbOptions{}
+	for _, opt := range opts {
+		opt(o)
 	}
 
 	return openDB(url, opts.Monitoring)
