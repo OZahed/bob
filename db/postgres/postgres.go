@@ -2,7 +2,10 @@ package postgres
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/OZahed/bob/db"
 	"github.com/XSAM/otelsql"
@@ -14,7 +17,7 @@ import (
 // Every driver must have a unique name based on the database or underlying database connection.
 const driverName = "postgres"
 
-// Options is the options for connecting to the database.
+// Options is the Options for connecting to the database.
 // See https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS
 type Options struct {
 	// Host is the host name or IP address of the database server.
@@ -49,8 +52,82 @@ type MonitoringOpts struct {
 	Tracing bool
 }
 
+type DBOption func(opts *Options) *Options
+
+func WithHost(hostname string) DBOption {
+	hostname = strings.TrimSpace(hostname)
+
+	return func(opts *Options) *Options {
+		opts.Host = hostname
+		return opts
+	}
+}
+
+func WithPort(port int) DBOption {
+	portString := strconv.Itoa(port)
+
+	return func(opts *Options) *Options {
+		opts.Port = portString
+		return opts
+	}
+}
+
+func WithUsername(username string) DBOption {
+	username = strings.TrimSpace(username)
+
+	return func(opts *Options) *Options {
+		opts.Username = username
+		return opts
+	}
+}
+
+func WithPassword(password string) DBOption {
+	password = strings.TrimSpace(password)
+
+	return func(opts *Options) *Options {
+		opts.Password = password
+		return opts
+	}
+}
+
+func WithSSLMode(sslMode string) DBOption {
+	sslMode = strings.TrimSpace(sslMode)
+
+	return func(opts *Options) *Options {
+		opts.SSLMode = sslMode
+		return opts
+	}
+}
+
+func WithSSLCert(sslCert string) DBOption {
+	sslCert = strings.TrimSpace(sslCert)
+
+	return func(opts *Options) *Options {
+		if opts.SSLMode != "disable" {
+			opts.SSLCert = sslCert
+		} else {
+			errors.New("SSL certificate not provided")
+		}
+
+		return opts
+	}
+}
+
+func WithMonitoringOpts(monitoringOpts MonitoringOpts) DBOption {
+	return func(opts *Options) *Options {
+		opts.Monitoring = monitoringOpts
+		return opts
+	}
+}
+
 // New returns a new instance of a postgres database.
-func NewFromOption(opts Options) (db.Database, error) {
+func NewFromOption(dbOptions ...DBOption) (db.Database, error) {
+	if len(dbOptions) == 0 {
+		return nil, fmt.Errorf("Options not provided")
+	}
+
+	opts := optionsBuilder(dbOptions...)
+
 	// Parse database url
 	url := fmt.Sprintf(
 		"%s://%s:%s@%s:%s/%s?sslmode=%s",
@@ -62,6 +139,16 @@ func NewFromOption(opts Options) (db.Database, error) {
 	}
 
 	return openDB(url, opts.Monitoring)
+}
+
+func optionsBuilder(dbOptions ...DBOption) *Options {
+	opts := &Options{}
+
+	for _, opt := range dbOptions {
+		opt(opts)
+	}
+
+	return opts
 }
 
 // NewFromURL returns a new instance of a postgres database from a URL.
