@@ -1,3 +1,37 @@
+// Package db provides some useful SQL database functionalities like Load balancing on master slave configuration
+// Wrapping sql.DB to sqlx.DB and it makes an interface on SQL to make it easier to plugin the sql engine
+//
+// usage example:
+//
+//	leader,err := otelsql.Open(diver, conString)
+//	if err != nil {
+//		// do something
+//	}
+//
+//	// set max idle connections and max connections
+//	leaderX,err := db.WrapSQLX(leader) // optional
+//	if err != nil {
+//		// ...
+//	}
+//
+//	var followerDBs []sql.DB // or sqlx.DB
+//	for _, slaveConString := range slaveConnectionStrings {
+//		follower, err := otelsql.Open(driver, conString)
+//		if err != nil {
+//			// ...
+//		}
+//
+//		//optional
+//		followerX,err := db.WrapSQLX(follower)
+//		if err != nil {
+//			// ...
+//		}
+//
+//		followerDBs = append(followerDBs, followerX) // or follower
+//	}
+//
+//	// when ever the loadBalancedDb is used it will automatically does the load balancing on the sql statement
+//	loadBalancedDb := db.NewBalancedDB(leaderX, ...followerDBs)
 package db
 
 import (
@@ -20,6 +54,7 @@ type DB struct {
 	countX uint64 // Monotonically incrementing counter on each query for xpdbs
 }
 
+// NewBalancedDB gets Database or DatabaseX interface, DatabaseX is a super set on Database Interface
 func NewBalancedDB(master Database, slaves ...Database) Database {
 	db := new(DB)
 
