@@ -15,3 +15,7 @@
 
 
 *.todo
+
+# IDEs and editors
+.vscode
+.idea

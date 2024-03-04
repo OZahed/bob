@@ -1,10 +1,9 @@
-package postgres
+package db
 
 import (
 	"database/sql"
 	"errors"
 
-	"github.com/OZahed/bob/db"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -14,7 +13,7 @@ type sqlxDB struct {
 	*sqlx.DB
 }
 
-func WrapSQLX(db db.Database) (db.DatabaseX, error) {
+func WrapSQLX(db Database, driverName string) (DatabaseX, error) {
 	if dbc, ok := db.(*sql.DB); ok {
 		return &sqlxDB{sqlx.NewDb(dbc, driverName)}, nil
 	}
