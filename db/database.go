@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"time"
 )
 
 // Database is a subset of the sql.DB interface.
@@ -14,9 +13,6 @@ type Database interface {
 	Close() error
 	Ping() error
 	PingContext(ctx context.Context) error
-	SetMaxIdleConns(n int)
-	SetMaxOpenConns(n int)
-	SetConnMaxLifetime(time.Duration)
 	// Embed the Queryer interface for data fetching and manipulating methods.
 	Queryer
 }

@@ -37,6 +37,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"sync/atomic"
 	"time"
 
@@ -47,16 +48,22 @@ import (
 // forming a single master multiple slaves topology.
 // Reads and writes are automatically directed to the correct physical db.
 type DB struct {
-	pdbs  []Database  // Physical databases
-	xpdbs []DatabaseX // Physical databases with sqlx extensions
+	SlowQueryThreshold time.Duration
+	pdbs               []Database  // Physical databases
+	xpdbs              []DatabaseX // Physical databases with sqlx extensions
+	lg                 *slog.Logger
 
 	count  uint64 // Monotonically incrementing counter on each query pdbs
 	countX uint64 // Monotonically incrementing counter on each query for xpdbs
 }
 
 // NewBalancedDB gets Database or DatabaseX interface, DatabaseX is a super set on Database Interface
-func NewBalancedDB(master Database, slaves ...Database) Database {
-	db := new(DB)
+func NewBalancedDB(SlowQueryThreshold time.Duration, lg *slog.Logger, master Database, slaves ...Database) Database {
+	db := &DB{lg: lg}
+
+	if SlowQueryThreshold > 0 {
+		db.SlowQueryThreshold = SlowQueryThreshold
+	}
 
 	// check is salves are compatible with DatabaseX interface
 	for _, slave := range slaves {
@@ -85,6 +92,16 @@ func (db *DB) Close() error {
 
 // Begin starts a transaction on the master. The isolation level is dependent on the driver.
 func (db *DB) Begin() (*sql.Tx, error) {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		tx, err := db.master().Begin()
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn("Slow query", slog.String("query", "BEGIN"), slog.Duration("duration", time.Since(start)))
+		}
+
+		return tx, err
+	}
+
 	return db.master().Begin()
 }
 
@@ -93,6 +110,16 @@ func (db *DB) Begin() (*sql.Tx, error) {
 // If a non-default isolation level is used that the driver doesn't support,
 // an error will be returned.
 func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		tx, err := db.master().BeginTx(ctx, opts)
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn("Slow query", "query", "BEGIN(ctx)", slog.Duration("duration", time.Since(start)))
+		}
+
+		return tx, err
+	}
+
 	return db.master().BeginTx(ctx, opts)
 }
 
@@ -100,6 +127,21 @@ func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 // The args are for any placeholder parameters in the query.
 // Exec uses the master as the underlying physical db.
 func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		res, err := db.master().Exec(query, args...)
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn(
+				"Slow query",
+				slog.Duration("duration", time.Since(start)),
+				slog.String("query", query),
+				slog.Any("args", args),
+			)
+		}
+
+		return res, err
+	}
+
 	return db.master().Exec(query, args...)
 }
 
@@ -107,6 +149,21 @@ func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
 // The args are for any placeholder parameters in the query.
 // Exec uses the master as the underlying physical db.
 func (db *DB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		res, err := db.master().ExecContext(ctx, query, args...)
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn(
+				"Slow query",
+				slog.Duration("duration", time.Since(start)),
+				slog.String("query", query),
+				slog.Any("args", args),
+			)
+		}
+
+		return res, err
+	}
+
 	return db.master().ExecContext(ctx, query, args...)
 }
 
@@ -165,6 +222,20 @@ func (db *DB) PingContext(ctx context.Context) error {
 // The args are for any placeholder parameters in the query.
 // Query uses a slave as the physical db.
 func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		res, err := db.slave().Query(query, args...)
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn(
+				"Slow query",
+				slog.Duration("duration", time.Since(start)),
+				slog.String("query", query),
+				slog.Any("args", args),
+			)
+		}
+
+		return res, err
+	}
 	return db.slave().Query(query, args...)
 }
 
@@ -172,6 +243,21 @@ func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
 // The args are for any placeholder parameters in the query.
 // QueryContext uses a slave as the physical db.
 func (db *DB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		res, err := db.slave().QueryContext(ctx, query, args...)
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn(
+				"Slow query",
+				slog.Duration("duration", time.Since(start)),
+				slog.String("query", query),
+				slog.Any("args", args),
+			)
+		}
+
+		return res, err
+	}
+
 	return db.slave().QueryContext(ctx, query, args...)
 }
 
@@ -180,6 +266,21 @@ func (db *DB) QueryContext(ctx context.Context, query string, args ...interface{
 // Errors are deferred until Row's Scan method is called.
 // QueryRow uses a slave as the physical db.
 func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		res := db.slave().QueryRow(query, args...)
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn(
+				"Slow query",
+				slog.Duration("duration", time.Since(start)),
+				slog.String("query", query),
+				slog.Any("args", args),
+			)
+		}
+
+		return res
+	}
+
 	return db.slave().QueryRow(query, args...)
 }
 
@@ -188,48 +289,61 @@ func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
 // Errors are deferred until Row's Scan method is called.
 // QueryRowContext uses a slave as the physical db.
 func (db *DB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		res := db.slave().QueryRowContext(ctx, query, args...)
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn(
+				"Slow query",
+				slog.Duration("duration", time.Since(start)),
+				slog.String("query", query),
+				slog.Any("args", args),
+			)
+		}
+
+		return res
+	}
+
 	return db.slave().QueryRowContext(ctx, query, args...)
 }
 
 // Get
 func (db *DB) Get(dest interface{}, query string, args ...interface{}) error {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		err := db.slaveX().Get(dest, query, args...)
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn(
+				"Slow query",
+				slog.Duration("duration", time.Since(start)),
+				slog.String("query", query),
+				slog.Any("args", args),
+			)
+		}
+
+		return err
+	}
+
 	return db.slaveX().Get(dest, query, args...)
 }
 
 func (db *DB) Select(dest interface{}, query string, args ...interface{}) error {
+	if db.SlowQueryThreshold > 0 {
+		start := time.Now()
+		err := db.slaveX().Select(dest, query, args...)
+		if time.Since(start) > db.SlowQueryThreshold {
+			db.lg.Warn(
+				"Slow query",
+				slog.Duration("duration", time.Since(start)),
+				slog.String("query", query),
+				slog.Any("args", args),
+			)
+		}
+
+		return err
+	}
+
 	return db.slaveX().Select(dest, query, args...)
-}
-
-// SetMaxIdleConns sets the maximum number of connections in the idle
-// connection pool for each underlying physical db.
-// If MaxOpenConns is greater than 0 but less than the new MaxIdleConns then the
-// new MaxIdleConns will be reduced to match the MaxOpenConns limit
-// If n <= 0, no idle connections are retained.
-func (db *DB) SetMaxIdleConns(n int) {
-	for i := range db.pdbs {
-		db.pdbs[i].SetMaxIdleConns(n)
-	}
-}
-
-// SetMaxOpenConns sets the maximum number of open connections
-// to each physical database.
-// If MaxIdleConns is greater than 0 and the new MaxOpenConns
-// is less than MaxIdleConns, then MaxIdleConns will be reduced to match
-// the new MaxOpenConns limit. If n <= 0, then there is no limit on the number
-// of open connections. The default is 0 (unlimited).
-func (db *DB) SetMaxOpenConns(n int) {
-	for i := range db.pdbs {
-		db.pdbs[i].SetMaxOpenConns(n)
-	}
-}
-
-// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
-// Expired connections may be closed lazily before reuse.
-// If d <= 0, connections are reused forever.
-func (db *DB) SetConnMaxLifetime(d time.Duration) {
-	for i := range db.pdbs {
-		db.pdbs[i].SetConnMaxLifetime(d)
-	}
 }
 
 // master returns the master physical database
