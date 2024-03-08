@@ -1,6 +1,6 @@
 module github.com/OZahed/bob
 
-go 1.20
+go 1.21
 
 require (
 	github.com/XSAM/otelsql v0.23.0
