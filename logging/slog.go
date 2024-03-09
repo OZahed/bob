@@ -8,17 +8,17 @@ import (
 
 var logger *slog.Logger
 
-// LevelHandler determines which type of Handler should be used for the logger
-type LevelHandler int
+// HandlerType determines which type of Handler should be used for the logger
+type HandlerType int
 
 const (
-	JSON LevelHandler = 1 + iota
+	JSON HandlerType = 1 + iota
 	Text
 )
 
 // Initiate function provides a new logger instance from the slog package
 // with the provided options.
-func Initiate(handler LevelHandler, level slog.Level) {
+func Initiate(handler HandlerType, level slog.Level) {
 	handlerOptions := &slog.HandlerOptions{
 		AddSource: true,
 		Level:     level,
