@@ -36,10 +36,16 @@ func WithSlogLogger(lg *slog.Logger) loggerOptionFunc {
 	}
 }
 
+// NewLogger returns a new instance of the Logger.
+// Example
+//
+//		slog := log.NewSlog(log.WithHandlerType(log.JsonHandler), log.WithLevel("debug"), log.WithAlwaysUTC(true))
+//	 	logger := log.NewLogger(log.WithSlogLogger(slog), WithSkipStack(1))
+//		logger.ErrorWithStack("error message", "key", "value")
 func NewLogger(opts ...loggerOptionFunc) *Logger {
 	option := &loggerOption{
 		stackSkip: 1,
-		lg:        slog.Default(),
+		lg:        NewSlog(WithHandlerType(TextHandler), WithLevel("debug")),
 	}
 
 	for _, opt := range opts {
