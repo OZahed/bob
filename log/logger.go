@@ -1,4 +1,4 @@
-package logging
+package log
 
 import (
 	"fmt"
@@ -6,7 +6,10 @@ import (
 	"runtime"
 )
 
-const maxDepthOfLogger = 25
+const (
+	maxDepthOfLogger = 25
+	runtimeMain      = "runtime.main"
+)
 
 // Logger is a wrapper around the slog logger from the slog package.
 type Logger struct {
@@ -14,46 +17,78 @@ type Logger struct {
 	stackSkip int
 }
 
-func NewLogger(logger *slog.Logger, stackSkip int) *Logger {
-	return &Logger{logger, stackSkip}
+type loggerOption struct {
+	stackSkip int
+	lg        *slog.Logger
 }
 
-func traverseStackFrames(depth int) (stackFrameInfo string) {
-STACK_FRAME:
+type loggerOptionFunc func(*loggerOption)
 
-	if depth >= maxDepthOfLogger {
-		return stackFrameInfo
+func WithSkipStack(skip int) loggerOptionFunc {
+	return func(opt *loggerOption) {
+		opt.stackSkip = skip + 1
+	}
+}
+
+func WithSlogLogger(lg *slog.Logger) loggerOptionFunc {
+	return func(opt *loggerOption) {
+		opt.lg = lg
+	}
+}
+
+func NewLogger(opts ...loggerOptionFunc) *Logger {
+	option := &loggerOption{
+		stackSkip: 1,
+		lg:        slog.Default(),
 	}
 
-	pc, file, line, ok := runtime.Caller(depth)
-
-	if !ok {
-		return stackFrameInfo
+	for _, opt := range opts {
+		opt(option)
 	}
 
-	funcInfo := runtime.FuncForPC(pc)
-	funcName := funcInfo.Name()
-
-	if funcName == "runtime.main" {
-		return stackFrameInfo
+	return &Logger{
+		Logger:    option.lg,
+		stackSkip: option.stackSkip,
 	}
 
-	stackFrameInfo = fmt.Sprintf("%s%s\n\t%s:%d\n", stackFrameInfo, file, funcName, line)
+}
 
-	depth++
-	goto STACK_FRAME
+func getStackFrame(depth int) (stackFrameInfo string) {
+	for i := depth; i < maxDepthOfLogger; i++ {
+		pc, file, line, ok := runtime.Caller(i)
+		if !ok {
+			break
+		}
+
+		funcInfo := runtime.FuncForPC(pc)
+		funcName := funcInfo.Name()
+
+		if funcName == runtimeMain {
+			break
+		}
+
+		stackFrameInfo = fmt.Sprintf("%s%s\n\t%s:%d\n", stackFrameInfo, file, funcName, line)
+	}
+
+	return stackFrameInfo
 }
 
 // ErrorWithStack logs error with the called stack frames during the call to the function.
 func (l Logger) ErrorWithStack(msg string, args ...any) {
-	stacks := traverseStackFrames(l.stackSkip)
+	stacks := getStackFrame(l.stackSkip)
 	args = append(args, "stack", stacks)
 	l.Error(msg, args...)
 }
 
 // DebugWithStack logs error with the called stack frames during the call to the function.
 func (l Logger) DebugWithStack(msg string, args ...any) {
-	stacks := traverseStackFrames(l.stackSkip)
+	stacks := getStackFrame(l.stackSkip)
 	args = append(args, "stack", stacks)
 	l.Debug(msg, args...)
+}
+
+func (l Logger) WarnWithStack(msg string, args ...any) {
+	stacks := getStackFrame(l.stackSkip)
+	args = append(args, "stack", stacks)
+	l.Warn(msg, args...)
 }

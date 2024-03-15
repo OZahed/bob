@@ -14,8 +14,8 @@ const (
 	TextHandler
 )
 
-// loggerOption is a configuration struct for the ReplaceAttr function
-type loggerOption struct {
+// slogOptions is a configuration struct for the ReplaceAttr function
+type slogOptions struct {
 	// HandlerType is the type of handler to be used for the logger
 	HandlerType     HandlerType
 	ReplaceAttrFunc func(groups []string, a slog.Attr) slog.Attr
@@ -29,29 +29,29 @@ type loggerOption struct {
 	AlwaysUTC bool
 }
 
-type LoggerOpt func(*loggerOption)
+type slogOptionFunc func(*slogOptions)
 
-func WithLevel(level string) LoggerOpt {
-	return func(cfg *loggerOption) {
+func WithLevel(level string) slogOptionFunc {
+	return func(cfg *slogOptions) {
 		cfg.Level = level
 	}
 }
 
-func WithHandlerType(handlerType HandlerType) LoggerOpt {
-	return func(cfg *loggerOption) {
+func WithHandlerType(handlerType HandlerType) slogOptionFunc {
+	return func(cfg *slogOptions) {
 		cfg.HandlerType = handlerType
 	}
 }
 
-func WithAlwaysUTC(enable bool) LoggerOpt {
-	return func(cfg *loggerOption) {
+func WithAlwaysUTC(enable bool) slogOptionFunc {
+	return func(cfg *slogOptions) {
 		cfg.ReplaceAttrEnable = true
 		cfg.AlwaysUTC = enable
 	}
 }
 
-func WithReplceAttrFunc(replaceAttr func(groups []string, a slog.Attr) slog.Attr) LoggerOpt {
-	return func(cfg *loggerOption) {
+func WithReplceAttrFunc(replaceAttr func(groups []string, a slog.Attr) slog.Attr) slogOptionFunc {
+	return func(cfg *slogOptions) {
 		cfg.ReplaceAttrEnable = true
 		cfg.ReplaceAttrFunc = replaceAttr
 
@@ -60,9 +60,9 @@ func WithReplceAttrFunc(replaceAttr func(groups []string, a slog.Attr) slog.Attr
 
 // NewSlog function provides a new logger instance from the slog package
 // with the provided options.
-func NewSlog(opts ...LoggerOpt) *slog.Logger {
+func NewSlog(opts ...slogOptionFunc) *slog.Logger {
 	// Default Options
-	opt := loggerOption{
+	opt := slogOptions{
 		HandlerType:       TextHandler,
 		Level:             "debug",
 		ReplaceAttrEnable: false,
@@ -101,7 +101,7 @@ func getLoggerLevel(level string) slog.Level {
 	}
 }
 
-func makeReplaceAttr(cfg loggerOption) func(groups []string, a slog.Attr) slog.Attr {
+func makeReplaceAttr(cfg slogOptions) func(groups []string, a slog.Attr) slog.Attr {
 	if !cfg.ReplaceAttrEnable {
 		return nil
 	}
