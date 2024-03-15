@@ -19,7 +19,6 @@ type Logger struct {
 
 type loggerOption struct {
 	stackSkip int
-	lg        *slog.Logger
 }
 
 type loggerOptionFunc func(*loggerOption)
@@ -30,22 +29,15 @@ func WithSkipStack(skip int) loggerOptionFunc {
 	}
 }
 
-func WithSlogLogger(lg *slog.Logger) loggerOptionFunc {
-	return func(opt *loggerOption) {
-		opt.lg = lg
-	}
-}
-
 // NewLogger returns a new instance of the Logger.
 // Example
 //
-//		slog := log.NewSlog(log.WithHandlerType(log.JsonHandler), log.WithLevel("debug"), log.WithAlwaysUTC(true))
-//	 	logger := log.NewLogger(log.WithSlogLogger(slog), WithSkipStack(1))
-//		logger.ErrorWithStack("error message", "key", "value")
-func NewLogger(opts ...loggerOptionFunc) *Logger {
+//		slg := log.NewSlog(log.WithHandlerType(log.JsonHandler), log.WithLevel("debug"), log.WithAlwaysUTC(true))
+//	 	lgr := log.NewLogger(slg, WithSkipStack(1))
+//		lgr.ErrorWithStack("error message", "key", "value")
+func NewLogger(slg *slog.Logger, opts ...loggerOptionFunc) *Logger {
 	option := &loggerOption{
 		stackSkip: 1,
-		lg:        NewSlog(WithHandlerType(TextHandler), WithLevel("debug")),
 	}
 
 	for _, opt := range opts {
@@ -53,7 +45,7 @@ func NewLogger(opts ...loggerOptionFunc) *Logger {
 	}
 
 	return &Logger{
-		Logger:    option.lg,
+		Logger:    slg,
 		stackSkip: option.stackSkip,
 	}
 
