@@ -1,7 +1,7 @@
 name: Run Commitlint on PR
 
 on:
-  pull_request:
+  push:
 
 jobs:
 
@@ -18,8 +18,10 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 20.11.1
+      - name: install commitlint
+        run: npm install -g @commitlint/config-conventional
       - name: configure commitlint rule
         run: > 
-            echo "export default { extends: ['@commitlint/config-conventional'] };" > commitlint.config.js
+            echo "{ extends: ['@commitlint/config-conventional'] }" > .commitlintrc
       - name: Validate all commits from PR
-        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+        run: echo ${{ github.push.head_commit.message }} | npx commitlint
