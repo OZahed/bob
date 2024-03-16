@@ -2,14 +2,16 @@ name: Run Commitlint on PR
 
 on:
   push:
-
+    branches:
+      - "*"
+  pull_request:
+    branches-ignore:
+      - "*"
 jobs:
-
   run-commitlint-on-pr:
     runs-on: ubuntu-latest
 
     steps:
-
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
@@ -21,7 +23,7 @@ jobs:
       - name: install commitlint
         run: npm install -g @commitlint/config-conventional
       - name: configure commitlint rule
-        run: > 
-            echo "{ extends: ['@commitlint/config-conventional'] }" > .commitlintrc
+        run: >
+          echo "{ extends: ['@commitlint/config-conventional'] }" > .commitlintrc
       - name: Validate all commits from PR
         run: echo ${{ github.push.head_commit.message }} | npx commitlint

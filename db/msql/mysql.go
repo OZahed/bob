@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	//nolint:revive
 	_ "github.com/go-sql-driver/mysql"
 )
 
