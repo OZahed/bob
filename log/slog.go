@@ -1,8 +1,10 @@
 package log
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
+	"runtime"
 	"strings"
 )
 
@@ -14,6 +16,12 @@ const (
 	TextHandler
 )
 
+const (
+	maxDepthOfLogger         = 25
+	runtimeMain              = "runtime.main"
+	replaceAttrFunctionStack = 7
+)
+
 // slogOptions is a configuration struct for the ReplaceAttr function
 type slogOptions struct {
 	// HandlerType is the type of handler to be used for the logger
@@ -22,6 +30,11 @@ type slogOptions struct {
 	// Level is the level of logging to be used for the logger
 	// Possible levels are "info", "warn", "warning", "error", "err", "debug"
 	Level string
+
+	// SkipStack is the number of stack frames to skip when logging 1 is the default
+	SkipStack int
+	// AddStack is a flag to determine if the stack should be added to the log
+	AddStack bool
 
 	// ReplaceAttrEnable is a flag to determine if the ReplaceAttr function should be enabled
 	ReplaceAttrEnable bool
@@ -55,6 +68,14 @@ func WithReplceAttrFunc(replaceAttr func(groups []string, a slog.Attr) slog.Attr
 		cfg.ReplaceAttrEnable = true
 		cfg.ReplaceAttrFunc = replaceAttr
 
+	}
+}
+
+func WithStackFrame() slogOptionFunc {
+	return func(cfg *slogOptions) {
+		cfg.ReplaceAttrEnable = true
+		cfg.SkipStack = replaceAttrFunctionStack
+		cfg.AddStack = true
 	}
 }
 
@@ -111,15 +132,39 @@ func makeReplaceAttr(cfg slogOptions) func(groups []string, a slog.Attr) slog.At
 	}
 
 	return func(groups []string, a slog.Attr) slog.Attr {
-		if a.Key == slog.TimeKey && cfg.AlwaysUTC {
+		switch {
+		case a.Key == slog.TimeKey && cfg.AlwaysUTC:
 			a.Value = slog.TimeValue(a.Value.Time().UTC())
-		}
-
-		// On slog Text handler duration is already in text format
-		if cfg.HandlerType == JsonHandler && a.Value.Kind() == slog.KindDuration {
+		case cfg.HandlerType == JsonHandler && a.Value.Kind() == slog.KindDuration:
 			a.Value = slog.StringValue(a.Value.Duration().String())
+		case cfg.AddStack && a.Key == slog.SourceKey:
+			src := a.Value.Any().(*slog.Source)
+			stack := getStackFrame(cfg.SkipStack)
+			return slog.Group(slog.SourceKey,
+				"caller", fmt.Sprintf("%s:%d\n\t%s:%d", src.File, src.Line, src.Function, src.Line),
+				"callerStack", stack)
 		}
 
 		return a
 	}
+}
+
+func getStackFrame(depth int) (stackFrameInfo string) {
+	for i := depth; i < maxDepthOfLogger; i++ {
+		pc, file, line, ok := runtime.Caller(i)
+		if !ok {
+			break
+		}
+
+		funcInfo := runtime.FuncForPC(pc)
+		funcName := funcInfo.Name()
+
+		if funcName == runtimeMain {
+			break
+		}
+
+		stackFrameInfo = fmt.Sprintf("%s%s:%d\n\t%s:%d\n", stackFrameInfo, file, line, funcName, line)
+	}
+
+	return stackFrameInfo
 }
