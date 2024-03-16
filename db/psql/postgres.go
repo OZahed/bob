@@ -2,9 +2,9 @@ package psql
 
 import (
 	//nolint:revive
-
 	"fmt"
 
+	//nolint:revive
 	_ "github.com/lib/pq"
 )
 

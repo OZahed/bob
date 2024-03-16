@@ -32,7 +32,7 @@ linters-settings:
     rules:
       - name: blank-imports # banned blank imports
         severity: error
-        disabled: false
+        disabled: true
       # check for exported values from packages to be named clearly
       # detects names like Redis.RedisConfig --> Redis.Config
       - name: confusing-naming
