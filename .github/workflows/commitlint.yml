@@ -7,7 +7,6 @@ on:
 jobs:
   run-commitlint-on-pr:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
         with:
