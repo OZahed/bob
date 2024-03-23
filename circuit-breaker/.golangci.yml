@@ -1,0 +1,122 @@
+# Refer to golangci-lint's example config file for more options and information:
+# https://github.com/golangci/golangci-lint/blob/master/.golangci.reference.yml
+
+run:
+  timeout: 5m
+  # Disables explicit modules update before linting
+  modules-download-mode: readonly
+  # exit code for failure situation
+  issues-exit-code: 100 # an arbitrary number to check for pipelines
+  # Include test files
+  tests: true
+  go: "1.16"
+
+linters:
+  enable:
+    - errcheck
+    - govet # code styling include commenting all exported values
+    - revive # golint is replaced by revive
+    - goimports # checks for alphabetical import statements
+    - staticcheck
+    - typecheck # type check, specifically for generics
+    - gosec # Gosec checks for common security issues, recommended to check for known CVE problems in your code
+    - gosimple # simplifies code (if two or more conditions can be merged to gather )
+  skip-dirs:
+    - docs
+    - vendor
+linters-settings:
+  revive:
+    max-open-files: 1024
+    ignore-generated-header: true
+    severity: error
+    rules:
+      - name: blank-imports # banned blank imports
+        severity: error
+        disabled: true
+      # check for exported values from packages to be named clearly
+      # detects names like Redis.RedisConfig --> Redis.Config
+      - name: confusing-naming
+        severity: error
+        disabled: false
+      # to avoid if-then-else
+      # returns as soon as possible
+      - name: early-return
+        severity: error
+        disabled: false
+      # checks for proper naming error
+      # error values should start with Err*
+      - name: error-naming
+        severity: error
+        disabled: false
+      # All Exported Values or functions should have comments
+      ## Disabled
+      - name: exported
+        severity: error
+        disabled: true
+        arguments:
+          - "checkPrivateReceivers"
+          - "sayRepetitiveInsteadOfStutters"
+      # char character limit for lines of code
+      - name: line-length-limit
+        severity: error
+        arguments: [120]
+      - name: unhandled-error # list of unhandled error
+        # Do not raise error for unhandled errors on these functions
+        arguments:
+          - fmt.Printf
+          - fmt.Println
+          - bytes.Buffer.Write
+          - bytes.Buffer.WriteByte
+          - fmt.Print
+          - fmt.Printf
+          - fmt.Println
+          - fmt.Fprint
+          - fmt.Fprintf
+          - fmt.Fprintln
+          - hash.Hash.Write
+  gosec:
+    # To select a subset of rules to run.
+    # Available rules: https://github.com/securego/gosec#available-rules
+    includes:
+      - G101 # Look for hard coded credentials
+      - G102 # Bind to all interfaces
+      - G103 # Audit the use of unsafe block
+      - G104 # Audit errors not checked
+      - G107 # Url provided to HTTP request as taint input
+      - G110 # Potential DoS vulnerability via decompression bomb
+      - G112 # Potential slowloris attack
+      - G114 # Use of net/http serve function that has no support for setting timeouts
+      - G201 # SQL query construction using format string
+      - G202 # SQL query construction using string concatenation
+      - G204 # Audit use of command execution
+      - G304 # File path provided as taint input
+      - G307 # Deferring a method which returns an error
+      - G401 # Detect the usage of DES, RC4, MD5 or SHA1
+      - G402 # Look for bad TLS connection settings
+      - G404 # Insecure random number source (rand)
+      - G501 # Import blocklist: crypto/md5
+      - G502 # Import blocklist: crypto/des
+      - G503 # Import blocklist: crypto/rc4
+      - G504 # Import blocklist: net/http/cgi
+      - G505 # Import blocklist: crypto/sha1
+      - G601 # Implicit memory aliasing of items from a range statement
+    exclude-generated: true
+    # To specify the configuration of rules.
+    config:
+      G101:
+        # Regexp pattern for variables and constants to find.
+        # Default: "(?i)passwd|pass|password|pwd|secret|token|pw|apiKey|bearer|cred"
+        pattern: "(?i)passwd|pass|password|pwd|secret|token|pw|apiKey|api(-|_)key|bearer|cred"
+        # If true, complain about all cases (even with low entropy).
+        # Default: false
+        ignore_entropy: false
+        # Maximum allowed entropy of the string.
+        # Default: "80.0"
+        entropy_threshold: "80.0"
+        # Maximum allowed value of entropy/string length.
+        # Is taken into account if entropy >= entropy_threshold/2.
+        # Default: "3.0"
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

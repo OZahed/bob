@@ -26,4 +26,4 @@ jobs:
         run: >
           echo "{ extends: ['@commitlint/config-conventional'] }" > .commitlintrc
       - name: Validate all commits from PR
-        run: echo ${{ github.push.head_commit.message }} | npx commitlint
+        run: echo ${{ github.event.head_commit.message }} | npx commitlint
