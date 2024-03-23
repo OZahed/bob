@@ -10,11 +10,9 @@ on:
       - "circuit-breaker/*"
     branches:
       - "*"
-
 permissions:
   contents: read
   pull-requests: read
-
 jobs:
   golangci:
     name: lint
