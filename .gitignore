@@ -12,10 +12,13 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
+vendor/
+*/vendor/
 
-
+# Todo lists
 *.todo
+*.todo.md
 
 # IDEs and editors
-.vscode
-.idea
+*.vscode
+*.idea
