@@ -1,9 +1,13 @@
 name: log-pipelinet
 on:
   push:
+    paths:
+      - "log/*"
     branches:
       - main
   pull_request:
+    paths:
+      - "log/*"
     branches:
       - "*"
 

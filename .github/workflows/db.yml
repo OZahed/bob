@@ -1,9 +1,13 @@
 name: db-pipelinet
 on:
   push:
+    paths:
+      - "db/*"
     branches:
       - main
   pull_request:
+    paths:
+      - "db/*"
     branches:
       - "*"
 

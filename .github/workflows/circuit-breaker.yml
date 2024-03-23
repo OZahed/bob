@@ -1,9 +1,13 @@
 name: cb-pipelinet
 on:
   push:
+    paths:
+      - "circuit-breaker/*"
     branches:
       - main
   pull_request:
+    paths:
+      - "circuit-breaker/*"
     branches:
       - "*"
 
