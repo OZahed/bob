@@ -1,3 +1,9 @@
+/*
+Package circuitbreaker provides a simple circuit breaker implementation.
+
+State transfer should be statistically evaluated to avoid false positives and negatives.
+*/
+
 package circuitbreaker
 
 import (
@@ -23,25 +29,22 @@ const (
 	HalfOpen
 )
 
-type StateHandler interface {
-	Allow(currentRate, thr float64) bool
-	StateEval(currentState State)
-}
-
 // TODO: struct padding could be better to reduce the foot print by almost half
 type CircuitBreaker struct {
-	mu                     sync.RWMutex
-	lastBucketTime         time.Time
-	handler                StateHandler
-	buckets                []Bucket
-	changeBucketDuration   time.Duration
-	threshold, currentRate float64
-	lastIndex,
-	windowInSeconds,
-	bucketPerSecond,
-	totalRequests,
-	totalFailures int
-	currentState State
+	lastBucketTime       time.Time
+	buckets              []Bucket
+	currentRate          float64
+	changeBucketDuration time.Duration
+	stateStepInterval    time.Duration
+	threshold            float64
+	currentRPS           uint32
+	lastIndex            int
+	windowInSeconds      int
+	bucketPerSecond      int
+	totalRequests        int
+	totalFailures        int
+	currentState         State
+	mu                   sync.RWMutex
 }
 
 // NewCircuitBreaker creates a new CircuitBreaker with the given windowInSeconds, bucketPerSecond and breakigThreshold.
@@ -49,13 +52,14 @@ type CircuitBreaker struct {
 // The bucketPerSecond is the number of buckets that the windowInSeconds will be divided into.
 // The breakigThreshold is the percentage of failures that will cause the CircuitBreaker to open.
 // The StateHandler is the handler that will be used to evaluate the state of the CircuitBreaker.
-func NewCircuitBreaker(windowInSeconds, bucketsPerSecond int, threshold float64, sh StateHandler) *CircuitBreaker {
+func NewCircuitBreaker(windowInSeconds, bucketsPerSecond int,
+	threshold float64, stateStepInterval time.Duration) *CircuitBreaker {
 	return &CircuitBreaker{
-		windowInSeconds: windowInSeconds,
-		bucketPerSecond: bucketsPerSecond,
-		threshold:       threshold,
-		buckets:         make([]Bucket, windowInSeconds*bucketsPerSecond),
-		handler:         sh,
+		windowInSeconds:   windowInSeconds,
+		bucketPerSecond:   bucketsPerSecond,
+		threshold:         threshold,
+		stateStepInterval: stateStepInterval,
+		buckets:           make([]Bucket, windowInSeconds*bucketsPerSecond),
 	}
 }
 
@@ -101,7 +105,7 @@ func (cb *CircuitBreaker) getBucketIndex() int {
 //
 //
 //		// check the status code and return an error if it is not 200
-//		if !(res.StatusCode > 100 && res.StatusCode < 400){
+//		if !(res.StatusCode >= 200 && res.StatusCode < 400){
 //			return errors.New("server returned non-200 status code")
 //		}
 //
@@ -119,9 +123,9 @@ func (cb *CircuitBreaker) MakeRequest(f func() error) error {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	defer cb.handler.StateEval(cb.currentState)
+	defer cb.StateEval()
 
-	if !cb.handler.Allow(cb.currentRate, cb.threshold) {
+	if !cb.Allow() {
 		return ErrRequestDropped
 	}
 
@@ -137,7 +141,7 @@ func (cb *CircuitBreaker) MakeRequest(f func() error) error {
 	}
 
 	cb.updateStats()
-	cb.handler.StateEval(cb.currentState)
+	cb.StateEval()
 
 	return err
 }
@@ -150,5 +154,27 @@ func (cb *CircuitBreaker) Allow() bool {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 
-	return cb.handler.Allow(cb.currentRate, cb.threshold)
+	switch cb.currentState {
+	case Closed:
+		return cb.closedAllow()
+	case Open:
+		return false
+	case HalfOpen:
+		return cb.halfOpenAllow(cb.currentRPS)
+	default:
+		return false
+	}
+}
+
+func (cb *CircuitBreaker) closedAllow() bool {
+	return cb.currentRate < cb.threshold
+}
+
+func (cb *CircuitBreaker) halfOpenAllow(_ uint32) bool {
+	return false
+}
+
+// Bring everuything here
+func (cb *CircuitBreaker) StateEval() {
+	panic("should be evaluated")
 }
