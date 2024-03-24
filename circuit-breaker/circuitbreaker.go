@@ -10,6 +10,11 @@ type Bucket struct {
 	failures int
 }
 
+type RetryPolicy struct {
+	Count int
+	Wait  time.Duration
+}
+
 type State int
 
 const (
@@ -23,20 +28,20 @@ type StateHandler interface {
 	StateEval(currentState State)
 }
 
+// TODO: struct padding could be better to reduce the foot print by almost half
 type CircuitBreaker struct {
-	windowInSeconds      int
-	bucketPerSecond      int
-	totalRequests        int
-	totalFailures        int
-	lastIndex            int
-	currentState         State
-	changeBucketDuration time.Duration
-	threshold            float64
-	currentRate          float64
-	lastBucketTime       time.Time
-	handler              StateHandler
-	buckets              []Bucket
-	mu                   sync.RWMutex
+	mu                     sync.RWMutex
+	lastBucketTime         time.Time
+	handler                StateHandler
+	buckets                []Bucket
+	changeBucketDuration   time.Duration
+	threshold, currentRate float64
+	lastIndex,
+	windowInSeconds,
+	bucketPerSecond,
+	totalRequests,
+	totalFailures int
+	currentState State
 }
 
 // NewCircuitBreaker creates a new CircuitBreaker with the given windowInSeconds, bucketPerSecond and breakigThreshold.
@@ -88,7 +93,7 @@ func (cb *CircuitBreaker) getBucketIndex() int {
 // error for circuit breaker
 // e.x:
 //
-//	err := cb.MakeRequest(func() error {
+//	err := cb.MakeRequest(&cb.RetryPolicy{Count: 3, Wailt: time.Second*3},func() error {
 //		res, err := http.Get("http://example.com")
 //		if err != nil {
 //			return err
@@ -113,6 +118,8 @@ func (cb *CircuitBreaker) getBucketIndex() int {
 func (cb *CircuitBreaker) MakeRequest(f func() error) error {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
+
+	defer cb.handler.StateEval(cb.currentState)
 
 	if !cb.handler.Allow(cb.currentRate, cb.threshold) {
 		return ErrRequestDropped
