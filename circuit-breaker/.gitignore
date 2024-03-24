@@ -1,0 +1,7 @@
+.vscode/
+.idea/
+
+bin/
+
+*.todo
+*.todo.md
