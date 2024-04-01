@@ -77,6 +77,8 @@ func (h *halfOpenInfo) ZeroState() {
 	h.CurrentPercentage = h.HalfOpenStages[0]
 }
 
+// HttpRequester is the interface abstracting http.Client
+// if you want to use monitoring and tracing, just implement them on http.Client and provide it to the breaker
 type HttpRequester interface {
 	Do(req *http.Request) (*http.Response, error)
 }
