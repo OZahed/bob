@@ -84,18 +84,18 @@ type HttpRequester interface {
 type CircuitBreaker struct {
 	lastStateChange      time.Time
 	lastBucketTime       time.Time
+	requester            HttpRequester
 	halfOpenInfo         *halfOpenInfo
 	buckets              []Bucket
-	lastIndex            int
-	changeBucketDuration time.Duration
+	threshold            float64
 	currentRate          float64
 	stateStepInterval    time.Duration
-	threshold            float64
+	changeBucketDuration time.Duration
 	windowInSeconds      int
-	bucketPerSecond      int16
+	bucketPerSecond      int
 	totalRequests        int
 	totalFailures        int
-	requester            HttpRequester
+	lastIndex            int
 	currentState         State
 	mu                   sync.RWMutex
 }
