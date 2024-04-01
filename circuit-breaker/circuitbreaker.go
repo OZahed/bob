@@ -8,6 +8,7 @@ package circuitbreaker
 
 import (
 	"math"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -21,6 +22,14 @@ var (
 	DefaultInterMediatoryStateChangeInterval = time.Second * 1
 )
 
+type State int
+
+const (
+	Closed State = iota
+	Open
+	HalfOpen
+)
+
 type Bucket struct {
 	requests int
 	failures int
@@ -30,14 +39,6 @@ type RetryPolicy struct {
 	Count int
 	Wait  time.Duration
 }
-
-type State int
-
-const (
-	Closed State = iota
-	Open
-	HalfOpen
-)
 
 type halfOpenInfo struct {
 	LastHalfOpenRequest            time.Time
@@ -76,6 +77,10 @@ func (h *halfOpenInfo) ZeroState() {
 	h.CurrentPercentage = h.HalfOpenStages[0]
 }
 
+type HttpRequester interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type CircuitBreaker struct {
 	lastStateChange      time.Time
 	lastBucketTime       time.Time
@@ -87,9 +92,10 @@ type CircuitBreaker struct {
 	stateStepInterval    time.Duration
 	threshold            float64
 	windowInSeconds      int
-	bucketPerSecond      int
+	bucketPerSecond      int16
 	totalRequests        int
 	totalFailures        int
+	requester            HttpRequester
 	currentState         State
 	mu                   sync.RWMutex
 }
@@ -117,13 +123,14 @@ func (cb *CircuitBreaker) ZeroState() {
 // The breakigThreshold is the percentage of failures that will cause the CircuitBreaker to open.
 // The StateHandler is the handler that will be used to evaluate the state of the CircuitBreaker.
 func NewCircuitBreaker(windowInSeconds, bucketsPerSecond int,
-	threshold float64, stateStepInterval time.Duration) *CircuitBreaker {
+	threshold float64, stateStepInterval time.Duration, req HttpRequester) *CircuitBreaker {
 	return &CircuitBreaker{
 		windowInSeconds:   windowInSeconds,
 		bucketPerSecond:   bucketsPerSecond,
 		threshold:         threshold,
 		stateStepInterval: stateStepInterval,
 		buckets:           make([]Bucket, windowInSeconds*bucketsPerSecond),
+		requester:         req,
 	}
 }
 
@@ -183,7 +190,7 @@ func (cb *CircuitBreaker) getBucketIndex() int {
 //		}
 //		return nil
 //	})
-func (cb *CircuitBreaker) MakeRequest(f func() error) error {
+func (cb *CircuitBreaker) Execute(f func() error) error {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
@@ -208,6 +215,15 @@ func (cb *CircuitBreaker) MakeRequest(f func() error) error {
 	cb.StateEval()
 
 	return err
+}
+
+func (cb *CircuitBreaker) DoRequest(req *http.Request) (resp *http.Response, err error) {
+	cb.Execute(func() error {
+		resp, err = cb.requester.Do(req)
+		return err
+	})
+
+	return resp, err
 }
 
 func (cb *CircuitBreaker) updateStats() {
