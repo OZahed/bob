@@ -220,12 +220,11 @@ func (cb *CircuitBreaker) Execute(f func() error) error {
 }
 
 func (cb *CircuitBreaker) DoRequest(req *http.Request) (resp *http.Response, err error) {
-	cb.Execute(func() error {
+	err = cb.Execute(func() error {
 		resp, err = cb.requester.Do(req)
 		return err
 	})
-
-	return resp, err
+	return
 }
 
 func (cb *CircuitBreaker) updateStats() {
