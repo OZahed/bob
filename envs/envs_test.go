@@ -1,4 +1,4 @@
-package configs_test
+package envs_test
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OZahed/bob/configs"
+	"github.com/OZahed/bob/envs"
 )
 
 // Since the function is a generic and depends on the input datatype common table tests do not work as intended
@@ -37,74 +37,74 @@ func TestGetEnv(t *testing.T) {
 	}
 	date, _ := time.Parse(time.DateOnly, timeStr)
 	strings := []string{"item1", "item2", "item3"}
-	keyProvider := configs.MakeKeyProviderPrefix(appName)
+	keyProvider := envs.MakeKeyProviderPrefix(appName)
 
 	t.Parallel()
 	t.Run("Test Generic For Port", func(t *testing.T) {
-		if got := configs.Get[int](keyProvider("PORT")); !reflect.DeepEqual(got, 3000) {
+		if got := envs.Get[int](keyProvider("PORT")); !reflect.DeepEqual(got, 3000) {
 			t.Errorf("GetEnv() = %v, want %v", got, 3000)
 		}
 	})
 
 	t.Run("Test Generic Default", func(t *testing.T) {
-		if got := configs.GetDefault(keyProvider("PORT_BAD_KEY"), 8080); !reflect.DeepEqual(got, 8080) {
+		if got := envs.GetDefault(keyProvider("PORT_BAD_KEY"), 8080); !reflect.DeepEqual(got, 8080) {
 			t.Errorf("GetEnv() = %v, want %v", got, 8080)
 		}
 	})
 
 	t.Run("Test Generic for duration", func(t *testing.T) {
-		if got := configs.Get[time.Duration](keyProvider("DURATION")); !reflect.DeepEqual(got, time.Second*2) {
+		if got := envs.Get[time.Duration](keyProvider("DURATION")); !reflect.DeepEqual(got, time.Second*2) {
 			t.Errorf("GetEnv() = %v, want %v", got, time.Second*2)
 		}
 	})
 
 	t.Run("Test Generic With Default Value", func(t *testing.T) {
-		if got := configs.GetDefault(keyProvider(badKey), time.Hour); !reflect.DeepEqual(got, time.Hour) {
+		if got := envs.GetDefault(keyProvider(badKey), time.Hour); !reflect.DeepEqual(got, time.Hour) {
 			t.Errorf("GetEnv() = %v, want %v", got, time.Hour)
 		}
 	})
 
 	t.Run("Test Generic for string", func(t *testing.T) {
-		if got := configs.Get[string](keyProvider("STRING_VAL")); !reflect.DeepEqual(got, stringVal) {
+		if got := envs.Get[string](keyProvider("STRING_VAL")); !reflect.DeepEqual(got, stringVal) {
 			t.Errorf("GetEnv() = %v, want %v", got, stringVal)
 		}
 	})
 
 	t.Run("Test Generic for string array", func(t *testing.T) {
-		if got := configs.Get[[]string](keyProvider("STRINGS1")); !reflect.DeepEqual(got, strings) {
+		if got := envs.Get[[]string](keyProvider("STRINGS1")); !reflect.DeepEqual(got, strings) {
 			t.Errorf("GetEnv() = %v, want %v", got, strings)
 		}
 	})
 
 	t.Run("Test Generic for date", func(t *testing.T) {
-		if got := configs.Get[time.Time](keyProvider("DATE")); !reflect.DeepEqual(got, date) {
+		if got := envs.Get[time.Time](keyProvider("DATE")); !reflect.DeepEqual(got, date) {
 			t.Errorf("GetEnv() = %v, want %v", got, date)
 		}
 	})
 
 	t.Run("Test Generic date with default ", func(t *testing.T) {
 		now := time.Now()
-		if got := configs.GetDefault(keyProvider("DATE_adfasdf"), now); !reflect.DeepEqual(got, now) {
+		if got := envs.GetDefault(keyProvider("DATE_adfasdf"), now); !reflect.DeepEqual(got, now) {
 			t.Errorf("GetEnv() = %v, want %v", got, now)
 		}
 	})
 
 	t.Run("Test Generic for bool", func(t *testing.T) {
-		if got := configs.Get[bool](keyProvider("BOOL")); !reflect.DeepEqual(got, true) {
+		if got := envs.Get[bool](keyProvider("BOOL")); !reflect.DeepEqual(got, true) {
 			t.Errorf("GetEnv() = %v, want %v", got, true)
 		}
 	})
 
 	t.Run("Test Generic for bad key", func(t *testing.T) {
-		if got := configs.Get[bool](keyProvider(badKey)); !reflect.DeepEqual(got, false) {
+		if got := envs.Get[bool](keyProvider(badKey)); !reflect.DeepEqual(got, false) {
 			t.Errorf("GetEnv() = %v, want %v", got, false)
 		}
 
-		if got := configs.Get[int](keyProvider(badKey)); !reflect.DeepEqual(got, 0) {
+		if got := envs.Get[int](keyProvider(badKey)); !reflect.DeepEqual(got, 0) {
 			t.Errorf("GetEnv() = %v, want %v", got, 0)
 		}
 
-		if got := configs.Get[time.Time](keyProvider(badKey)); !reflect.DeepEqual(got, time.Time{}) {
+		if got := envs.Get[time.Time](keyProvider(badKey)); !reflect.DeepEqual(got, time.Time{}) {
 			t.Errorf("GetEnv() = %v, want %v", got, time.Time{})
 		}
 	})
@@ -113,17 +113,17 @@ func TestGetEnv(t *testing.T) {
 		const key = "test"
 
 		_ = os.Setenv(key, "hello world")
-		if got := configs.Get[bool](key); !reflect.DeepEqual(got, false) {
+		if got := envs.Get[bool](key); !reflect.DeepEqual(got, false) {
 			t.Errorf("GetEnv() = %v, want %v", got, false)
 		}
 
 		_ = os.Setenv(key, "1.234")
-		if got := configs.Get[int32](keyProvider(key)); !reflect.DeepEqual(got, int32(0)) {
+		if got := envs.Get[int32](keyProvider(key)); !reflect.DeepEqual(got, int32(0)) {
 			t.Errorf("GetEnv() = %v, want %v", got, 0)
 		}
 
 		_ = os.Setenv(key, "2024-04-38 25:12:28+03:30") // wrong time
-		if got := configs.Get[time.Time](keyProvider(key)); !reflect.DeepEqual(got, time.Time{}) {
+		if got := envs.Get[time.Time](keyProvider(key)); !reflect.DeepEqual(got, time.Time{}) {
 			t.Errorf("GetEnv() = %v, want %v", got, time.Time{})
 		}
 	})

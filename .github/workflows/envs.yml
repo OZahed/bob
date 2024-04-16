@@ -2,12 +2,12 @@ name: configs-pipelinet
 on:
   push:
     paths:
-      - "configs/*"
+      - "envs/*"
     branches:
       - main
   pull_request:
     paths:
-      - "configs/*"
+      - "envs/*"
     branches:
       - "*"
 
@@ -30,7 +30,7 @@ jobs:
       - name: golangci-lint version
         run: golangci-lint version
       - name: golangci-lint
-        run: golangci-lint run -c ./configs/.golangci.yml ./configs/... -v
+        run: golangci-lint run -c ./envs/.golangci.yml ./envs/... -v
   test:
     runs-on: ubuntu-latest
     steps:
@@ -42,4 +42,4 @@ jobs:
       - name: Install dependencies
         run: go work sync
       - name: run tests
-        run: go test ./configs/... -v -p 1 -race
+        run: go test ./envs/... -v -p 1 -race
