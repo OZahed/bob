@@ -42,13 +42,14 @@ to parse Port value, the Parser will check for `SERVER.PORT` value
 
 > NOTE: if a struct pointer did implement `EnvParser` parser would only call the interface and ignores the default process
 
-`EnvParser` implementation Example
+## Basic Usage with`EnvParser` implementation Example
 
 ```go
 type TestParsVal struct {
 	Name string `env:"NAME"`
 }
 
+// ParseEnv implementation
 func (t *TestParsVal) ParseEnv(prefix string) error {
 	key := fmt.Sprintf("%s.%s", prefix, "NAME")
 	// you can use your own EnvGetter and KeyFunc implementation
@@ -59,6 +60,31 @@ func (t *TestParsVal) ParseEnv(prefix string) error {
 	}
 
 	return nil
+}
+
+type Config struct {
+	Date     time.Time
+	IntMaps  map[int]string
+	FloarMap map[string]float64
+	ParseVal TestParsVal
+	Strings  []string
+	Ints     []int
+	private  int 	// this field won't be changed because it is not exported.
+	Server   struct {
+		Host    string
+		Port    int
+		Timeout time.Duration
+		TLS     bool
+	}
+}
+
+func main() {
+	cfg := Config{}
+	if err := envs.NewParser(envs.DefaultKeyFunc, envs.DefaultEnvGetter).ParseStruct(&cfg, "APP"); err != nil {
+		log.Fatal(err)
+	}
+
+	// cfg is loaded and can be used
 }
 
 ```

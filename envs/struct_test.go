@@ -156,13 +156,13 @@ func TestMarshaler_ParseStruct_WithoutTags(t *testing.T) {
 		ParseVal TestParsVal
 		Strings  []string
 		Ints     []int
-		BadKey   int
 		Server   struct {
 			Host    string
 			Port    int
 			Timeout time.Duration
 			TLS     bool
 		}
+		BadKey int
 	}
 
 	const (
