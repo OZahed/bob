@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	r "reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,9 @@ var (
 		time.Kitchen, time.RFC3339, time.RFC1123, time.RFC1123Z, time.ANSIC,
 		"2006/01/02", "2006/01/02 15:04:05", time.UnixDate, time.RubyDate}
 
+	matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
+
 	stringSeparators = []string{",", ";", ";", "-", " "}
 
 	timeType     = r.TypeOf(time.Time{})
@@ -24,9 +28,9 @@ var (
 )
 
 var (
-	// later on you can read string value over a config server
-	// or read it from yaml or read value form json file
-	// just replace the Getter function with any other kind of
+	// DefaultEnvGetter can be used to use any string value as parser input
+	// for example need to make a network call or socket reading for any specific key
+	// this function can handler that without changing logic
 	DefaultEnvGetter ValueFunc = func(key, def string) string {
 		val := os.Getenv(key)
 		if val == "" {
@@ -36,6 +40,8 @@ var (
 		return val
 	}
 
+	// DefaultKeyBuilder is here to support a common practice in working with environment variables which is giving
+	// env keys some kind of namespace like `APPNAME_SERVER_PORT` it replaces all . notions in struct names into _ char.
 	DefaultKeyBuilder KeyFunc = func(key string) string {
 		return strings.ReplaceAll(strings.TrimSpace(key), ".", "_")
 	}
@@ -48,28 +54,27 @@ type ValueFunc func(key, def string) string
 // to replace some characters or you need to add a prefix or suffix
 type KeyFunc func(string) string
 
-type EnvLoader struct {
+type Parser struct {
 	BuildKey func(string) string
 	Get      func(name, def string) string
 }
 
-func EnvGetter(k KeyFunc, g ValueFunc) *EnvLoader {
-	if g == nil {
-		g = DefaultEnvGetter
+func NewParser(keyFunc KeyFunc, valueFunc ValueFunc) *Parser {
+	if valueFunc == nil {
+		valueFunc = DefaultEnvGetter
 	}
 
-	if k == nil {
-		k = DefaultKeyBuilder
+	if keyFunc == nil {
+		keyFunc = DefaultKeyBuilder
 	}
 
-	return &EnvLoader{BuildKey: k, Get: g}
+	return &Parser{BuildKey: keyFunc, Get: valueFunc}
 }
 
-// TODO: append key names
-// TODO: Add Support for
-
+// ParseStruct is the main entry for parsing environment variables into a struct.
+//
 //nolint:funlen
-func (m *EnvLoader) ParseStruct(dest interface{}, prefix string) (err error) {
+func (m *Parser) ParseStruct(dest interface{}, prefix string) (err error) {
 	dst := r.ValueOf(dest)
 	valueType := dst.Type()
 
@@ -124,7 +129,9 @@ func (m *EnvLoader) ParseStruct(dest interface{}, prefix string) (err error) {
 	return nil
 }
 
-func (m *EnvLoader) ParseValue(reflectValue r.Value, strValue, prefix, key string) error {
+// ParseValue turns parses string values for specific types defined in reflect.Value
+// key is required to append new key to existing key for nested structs.
+func (m *Parser) ParseValue(reflectValue r.Value, strValue, prefix, key string) error {
 	if !reflectValue.CanSet() {
 		return nil
 	}
@@ -221,34 +228,9 @@ func (m *EnvLoader) ParseValue(reflectValue r.Value, strValue, prefix, key strin
 	return nil
 }
 
-// I does not worth an scanner
-func parseStructTags(tagVal string) (key, def string) {
-	tagVal = strings.TrimSpace(tagVal)
-	if tagVal == "-" || tagVal == "" {
-		return "", ""
-	}
-
-	parts := strings.Split(tagVal, ",")
-	key = parts[0]
-	if len(parts) < 2 {
-		return key, ""
-	}
-
-	parts[1] = strings.ReplaceAll(parts[1], "default=", "")
-
-	def = parts[1]
-	if len(parts) > 2 {
-		def = strings.Join(parts[1:], ",")
-	}
-
-	return key, def
-}
-
-// Turns strings like: key1:val1,key2:val2 into map[K]V
-// Only string and int are supported for now
-//
-// TODO: add map[string]any
-func (m *EnvLoader) parseMap(value r.Value, str string) (err error) {
+// parseMap Turns strings like: key1:val1,key2:val2 into map[K]V
+// Only string and int are supported for now.
+func (m *Parser) parseMap(value r.Value, str string) (err error) {
 	if value.Type().Kind() != r.Map {
 		return fmt.Errorf("%s is not a map", value.Type().Name())
 	}
@@ -282,7 +264,7 @@ func (m *EnvLoader) parseMap(value r.Value, str string) (err error) {
 	return nil
 }
 
-func (m *EnvLoader) parseArray(value string, fieldValue r.Value, currentKey string) error {
+func (m *Parser) parseArray(value string, fieldValue r.Value, currentKey string) error {
 	splits := splitStr(value)
 
 	if len(splits) > fieldValue.Len() {
@@ -324,4 +306,26 @@ func parseTime(value string) (time.Time, error) {
 		err = append(err, e)
 	}
 	return time.Time{}, errors.Join(err...)
+}
+
+func parseStructTags(tagVal string) (key, def string) {
+	tagVal = strings.TrimSpace(tagVal)
+	if tagVal == "-" || tagVal == "" {
+		return "", ""
+	}
+
+	parts := strings.Split(tagVal, ",")
+	key = parts[0]
+	if len(parts) < 2 {
+		return key, ""
+	}
+
+	parts[1] = strings.ReplaceAll(parts[1], "default=", "")
+
+	def = parts[1]
+	if len(parts) > 2 {
+		def = strings.Join(parts[1:], ",")
+	}
+
+	return key, def
 }

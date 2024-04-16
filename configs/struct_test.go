@@ -57,8 +57,7 @@ func TestMarshaler_LoadStruct_defaults(t *testing.T) {
 
 	t.Run("want defaults", func(t *testing.T) {
 		destination := dest{}
-		m := configs.EnvGetter(configs.DefaultKeyBuilder, configs.DefaultEnvGetter)
-		if err := m.ParseStruct(&destination, "TEST"); (err != nil) != false {
+		if err := configs.NewParser(nil, nil).ParseStruct(&destination, "TEST"); (err != nil) != false {
 			t.Errorf("Marshaler.Marshal() error = %v, wantErr %v", err, nil)
 		}
 
@@ -138,8 +137,9 @@ func TestMarshaler_LoadStruct_osSetEnv(t *testing.T) {
 
 	t.Run("want defaults", func(t *testing.T) {
 		cfg := Config{}
-		m := configs.EnvGetter(configs.DefaultKeyBuilder, configs.DefaultEnvGetter)
-		if err := m.ParseStruct(&cfg, "APP"); (err != nil) != false {
+
+		if err := configs.NewParser(configs.DefaultKeyBuilder, configs.DefaultEnvGetter).
+			ParseStruct(&cfg, "APP"); (err != nil) != false {
 			t.Errorf("Marshaler.Marshal() error = %v, wantErr %v", err, nil)
 		}
 
