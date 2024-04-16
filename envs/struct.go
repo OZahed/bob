@@ -1,4 +1,4 @@
-package configs
+package envs
 
 import (
 	"errors"
@@ -12,19 +12,21 @@ import (
 	"time"
 )
 
+const (
+	ParseEnvFunc = "ParseEnv"
+)
+
 var (
 	timeFormats = []string{time.DateOnly, time.TimeOnly, time.DateTime, "2006-01-02 15:04:05-07:00",
 		time.Kitchen, time.RFC3339, time.RFC1123, time.RFC1123Z, time.ANSIC,
 		"2006/01/02", "2006/01/02 15:04:05", time.UnixDate, time.RubyDate}
 
-	matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
-
 	stringSeparators = []string{",", ";", ";", "-", " "}
 
-	timeType     = r.TypeOf(time.Time{})
-	durationType = r.TypeOf(time.Duration(0))
-	urlType      = r.TypeOf(&url.URL{})
+	EnvParserType = r.TypeOf((*EnvParser)(nil)).Elem()
+	timeType      = r.TypeOf(time.Time{})
+	durationType  = r.TypeOf(time.Duration(0))
+	urlType       = r.TypeOf(&url.URL{})
 )
 
 var (
@@ -40,12 +42,17 @@ var (
 		return val
 	}
 
-	// DefaultKeyBuilder is here to support a common practice in working with environment variables which is giving
+	// DefaultKeyFunc is here to support a common practice in working with environment variables which is giving
 	// env keys some kind of namespace like `APPNAME_SERVER_PORT` it replaces all . notions in struct names into _ char.
-	DefaultKeyBuilder KeyFunc = func(key string) string {
+	DefaultKeyFunc KeyFunc = func(key string) string {
 		return strings.ReplaceAll(strings.TrimSpace(key), ".", "_")
 	}
 )
+
+// EnvParser type stops the normal reflection process and takes over the parsing responsibility
+type EnvParser interface {
+	ParseEnv(prefix string) error
+}
 
 // ValueFunc is the function is required because sometimes we need to read values sources other than os.getEnv
 type ValueFunc func(key, def string) string
@@ -53,9 +60,10 @@ type ValueFunc func(key, def string) string
 // KeyFunc is a function that returns altered keys, for example some times you need
 // to replace some characters or you need to add a prefix or suffix
 type KeyFunc func(string) string
+type GetFunc func(name, def string) string
 
 type Parser struct {
-	BuildKey func(string) string
+	BuildKey KeyFunc
 	Get      func(name, def string) string
 }
 
@@ -65,7 +73,7 @@ func NewParser(keyFunc KeyFunc, valueFunc ValueFunc) *Parser {
 	}
 
 	if keyFunc == nil {
-		keyFunc = DefaultKeyBuilder
+		keyFunc = DefaultKeyFunc
 	}
 
 	return &Parser{BuildKey: keyFunc, Get: valueFunc}
@@ -102,9 +110,10 @@ func (m *Parser) ParseStruct(dest interface{}, prefix string) (err error) {
 			continue
 		}
 
+		// we did already got rid of unExported values
 		tagVal, hasKey := fieldType.Tag.Lookup("env")
 		if !hasKey {
-			continue
+			tagVal = strings.ToUpper(convertUpperCaseWithUnderLine(dst.Type().Field(i).Name))
 		}
 
 		// set string up
@@ -204,18 +213,20 @@ func (m *Parser) ParseValue(reflectValue r.Value, strValue, prefix, key string) 
 	case r.Struct:
 		// The ParseEnv should be on pointer
 		ptr := reflectValue.Addr()
-		// checking for ParseEnv() error method first
-		parser := ptr.MethodByName("ParseEnv")
-		if parser.IsValid() {
-			callResult := parser.Call([]r.Value{r.ValueOf(key)})
+		if ptr.Type().Implements(EnvParserType) {
 
-			e := callResult[0].Interface()
+			// checking for ParseEnv() error method first
+			parser := ptr.MethodByName(ParseEnvFunc)
+			if parser.IsValid() {
+				callResult := parser.Call([]r.Value{r.ValueOf(key)})
 
-			if e == nil {
-				return nil
+				e := callResult[0].Interface()
+				if e == nil {
+					return nil
+				}
+
+				return e.(error)
 			}
-
-			return e.(error)
 		}
 
 		if !reflectValue.CanAddr() || reflectValue.Type() == r.TypeOf(struct{}{}) {
@@ -328,4 +339,12 @@ func parseStructTags(tagVal string) (key, def string) {
 	}
 
 	return key, def
+}
+
+func convertUpperCaseWithUnderLine(in string) string {
+	// this regex matches any lower case char next to an uppercase char
+	// matches two instance at once (1)(2) we can use later on in
+	// re.ReplaceAllString as ${1} , ${2} how ever we want
+	re := regexp.MustCompile(`([a-z0-9])([A-Z])`)
+	return re.ReplaceAllString(in, "${1}_${2}")
 }

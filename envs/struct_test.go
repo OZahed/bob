@@ -1,4 +1,4 @@
-package configs_test
+package envs_test
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OZahed/bob/configs"
+	"github.com/OZahed/bob/envs"
 )
 
 type TestParsVal struct {
@@ -57,7 +57,7 @@ func TestMarshaler_LoadStruct_defaults(t *testing.T) {
 
 	t.Run("want defaults", func(t *testing.T) {
 		destination := dest{}
-		if err := configs.NewParser(nil, nil).ParseStruct(&destination, "TEST"); (err != nil) != false {
+		if err := envs.NewParser(nil, nil).ParseStruct(&destination, "TEST"); (err != nil) != false {
 			t.Errorf("Marshaler.Marshal() error = %v, wantErr %v", err, nil)
 		}
 
@@ -138,7 +138,88 @@ func TestMarshaler_LoadStruct_osSetEnv(t *testing.T) {
 	t.Run("want defaults", func(t *testing.T) {
 		cfg := Config{}
 
-		if err := configs.NewParser(configs.DefaultKeyBuilder, configs.DefaultEnvGetter).
+		if err := envs.NewParser(envs.DefaultKeyFunc, envs.DefaultEnvGetter).
+			ParseStruct(&cfg, "APP"); (err != nil) != false {
+			t.Errorf("Marshaler.Marshal() error = %v, wantErr %v", err, nil)
+		}
+
+		if !reflect.DeepEqual(cfg, want) {
+			t.Errorf("got: %v  want: %v", cfg, want)
+		}
+	})
+}
+
+func TestMarshaler_ParseStruct_WithoutTags(t *testing.T) {
+	type Config struct {
+		Date     time.Time
+		TestMap  map[int]string
+		ParseVal TestParsVal
+		Strings  []string
+		Ints     []int
+		BadKey   int
+		Server   struct {
+			Host    string
+			Port    int
+			Timeout time.Duration
+			TLS     bool
+		}
+	}
+
+	const (
+		urlString = "https://test.com"
+		port      = 3000
+		intVal    = 123456
+		appName   = "TEST"
+		badKey    = "BAD_KEY"
+		stringVal = "abcdefg"
+		timeStr   = "2024-04-16 13:32:27"
+		parseVal  = "parse val name"
+	)
+
+	strings := []string{"item1", "item2", "item3"}
+
+	testEnvs := map[string]string{
+		"APP_STRINGS":        "item1 item2 item3",
+		"APP_INTS":           "1,2,3,4,5,6",
+		"APP_DATE":           timeStr,
+		"APP_PARSE_VAL_NAME": parseVal,
+		"APP_TEST_MAP":       "1:hello world; 2:second val; 3:abcd",
+		"APP_SERVER_PORT":    strconv.Itoa(port),
+		"APP_SERVER_HOST":    "localhost",
+		"APP_SERVER_TIMEOUT": "2s",
+		"APP_SERVER_TLS":     "t",
+	}
+
+	for k, v := range testEnvs {
+		_ = os.Setenv(k, v)
+	}
+
+	date, _ := time.Parse(time.DateTime, timeStr)
+
+	want := Config{
+		Strings: strings,
+		Ints:    []int{1, 2, 3, 4, 5, 6},
+		Date:    date,
+		BadKey:  0,
+		TestMap: map[int]string{
+			1: "hello world",
+			2: "second val",
+			3: "abcd",
+		},
+		ParseVal: TestParsVal{
+			Name: parseVal,
+		},
+	}
+
+	want.Server.Host = "localhost"
+	want.Server.Port = port
+	want.Server.Timeout = 2 * time.Second
+	want.Server.TLS = true
+
+	t.Run("want defaults", func(t *testing.T) {
+		cfg := Config{}
+
+		if err := envs.NewParser(envs.DefaultKeyFunc, envs.DefaultEnvGetter).
 			ParseStruct(&cfg, "APP"); (err != nil) != false {
 			t.Errorf("Marshaler.Marshal() error = %v, wantErr %v", err, nil)
 		}
