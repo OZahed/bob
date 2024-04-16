@@ -1,7 +1,7 @@
 # Configs
 
 configs is a light weight library that helps with reading environment variables it helps you with loading env values
-directly into a struct
+directly into a struct or Just simply yu can use generic Get Function or Get For specific dataTypes
 
 ## How to Use?
 
