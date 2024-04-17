@@ -42,39 +42,61 @@ to parse Port value, the Parser will check for `SERVER.PORT` value
 
 > NOTE: if a struct pointer did implement `EnvParser` parser would only call the interface and ignores the default process
 
+\*\* envs package also provides a Generic `Get` and `GetDefault` function
+
 ## Basic Usage with`EnvParser` implementation Example
 
 ```go
 type TestParsVal struct {
-	Name string `env:"NAME"`
+	When 	 time.Time
+	Name 	 string
+	Duration time.Duration
 }
 
-// ParseEnv implementation
+// EnvParser interface implementation
 func (t *TestParsVal) ParseEnv(prefix string) error {
-	key := fmt.Sprintf("%s.%s", prefix, "NAME")
-	// you can use your own EnvGetter and KeyFunc implementation
-	t.Name = envs.DefaultEnvGetter(envs.DefaultKeyFunc(key, ".", "_"))
+	whenKey := prefix + ".HAPPENED_AT"
+	nameKey := prefix + ".SPECIAL_KEY"
+	timeoutKey := prefix + ".TIMEOUT"
 
-	if t.Name == "" {
-		t.Name = "From ParsEnv"
+	when := envs.DefaultGetFunc(whenKey, "")
+	t,err := time.Parse("your time format", when)
+	if err != nil {
+		return err
 	}
+
+	t.Time = t
+
+
+	t.Name = envs.DefaultGetFunc(nameKey, "test name value")
+
+	timeout := envs.DefaultGetFunc(timeoutKey, "10s")
+	d,err := time.ParseDuration(timeout)
+	if err != nil {
+		return err
+	}
+
+	t.Duration = d
 
 	return nil
 }
 
 type Config struct {
-	Date     time.Time
-	IntMaps  map[int]string
-	FloarMap map[string]float64
+	// env Tags are not mandatory but required for default values
+	Date     time.Time `env:"DATE,default=2024-03-20"`
+	// you can change the default names just like json tags
+	IntMaps  map[int]string `env:"MAP1,default=200:OK, 304:redirect, 404:not found"` // Will search for prefix.MAP1 or prefix_MAP1
+	FloatMap map[string]float64 // will search for prefix.FLOAT_MAP or prefix_FLOAT_MAP
 	ParseVal TestParsVal
 	Strings  []string
-	Ints     []int
-	private  int 	// this field won't be changed because it is not exported.
-	Server   struct {
-		Host    string
-		Port    int
-		Timeout time.Duration
-		TLS     bool
+	IntArr   []int
+  // private fields will get ignored
+	privateField int
+	Server       struct {
+		Host         string
+		Port         int
+		Timeout      time.Duration
+		TLS          bool
 	}
 }
 
@@ -85,22 +107,12 @@ func main() {
 	}
 
 	// cfg is loaded and can be used
+
+	// if you needed a value that is not inside your config struct
+	anotherDuration :=  envs.Get[time.Duration]("APP_DURATION_KEY")
+	durationWithDefault := envs.GetDefault("APP_DURATION_KEY2", time.Second * 2)
 }
 
-```
-
----
-
-envs package also provides a Generic `Get` and `GetDefault` function which work like this:
-
-```go
-// will return a value of default(second input) type
-timeout := envs.GetDefault("exactEnvKey", time.Second * 10)
-
-// will return a value of zero value of type time.Duration
-timeout := envs.Get[time.Duration]("exactEnvKey");
-
-str := envs.GetDuration("exactEnvKey", time.Second*5)
 ```
 
 ---

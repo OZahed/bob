@@ -138,7 +138,7 @@ func TestMarshaler_LoadStruct_osSetEnv(t *testing.T) {
 	t.Run("want defaults", func(t *testing.T) {
 		cfg := Config{}
 
-		if err := envs.NewParser(envs.DefaultKeyFunc, envs.DefaultEnvGetter).
+		if err := envs.NewParser(envs.DefaultKeyFunc, envs.DefaultGetFunc).
 			ParseStruct(&cfg, "APP"); (err != nil) != false {
 			t.Errorf("Marshaler.Marshal() error = %v, wantErr %v", err, nil)
 		}
@@ -219,7 +219,7 @@ func TestMarshaler_ParseStruct_WithoutTags(t *testing.T) {
 	t.Run("want defaults", func(t *testing.T) {
 		cfg := Config{}
 
-		if err := envs.NewParser(envs.DefaultKeyFunc, envs.DefaultEnvGetter).
+		if err := envs.NewParser(envs.DefaultKeyFunc, envs.DefaultGetFunc).
 			ParseStruct(&cfg, "APP"); (err != nil) != false {
 			t.Errorf("Marshaler.Marshal() error = %v, wantErr %v", err, nil)
 		}

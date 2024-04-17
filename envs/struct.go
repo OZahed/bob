@@ -30,10 +30,10 @@ var (
 )
 
 var (
-	// DefaultEnvGetter can be used to use any string value as parser input
+	// DefaultGetFunc can be used to use any string value as parser input
 	// for example need to make a network call or socket reading for any specific key
 	// this function can handler that without changing logic
-	DefaultEnvGetter ValueFunc = func(key, def string) string {
+	DefaultGetFunc ValueFunc = func(key, def string) string {
 		val := os.Getenv(key)
 		if val == "" {
 			return def
@@ -69,7 +69,7 @@ type Parser struct {
 
 func NewParser(keyFunc KeyFunc, valueFunc ValueFunc) *Parser {
 	if valueFunc == nil {
-		valueFunc = DefaultEnvGetter
+		valueFunc = DefaultGetFunc
 	}
 
 	if keyFunc == nil {
@@ -218,6 +218,7 @@ func (m *Parser) ParseValue(reflectValue r.Value, strValue, prefix, key string) 
 			// checking for ParseEnv() error method first
 			parser := ptr.MethodByName(ParseEnvFunc)
 			if parser.IsValid() {
+
 				callResult := parser.Call([]r.Value{r.ValueOf(key)})
 
 				e := callResult[0].Interface()
