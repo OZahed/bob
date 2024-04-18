@@ -54,6 +54,9 @@ type TestParsVal struct {
 }
 
 // EnvParser interface implementation
+// Optional, if a struct implements EnvParser, envs pacakge
+// will only call the ParseEnv for that struct and won't use reflection
+// otherwise, it would recursively call reflection on struct fields
 func (t *TestParsVal) ParseEnv(prefix string) error {
 	whenKey := prefix + ".HAPPENED_AT"
 	nameKey := prefix + ".SPECIAL_KEY"
