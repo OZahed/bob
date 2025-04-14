@@ -1,5 +1,4 @@
 // nolint
-// FIXME: add to linter after use
 package db
 
 import (
