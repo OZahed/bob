@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - "*"
+      
 jobs:
   run-commitlint-on-pr:
     runs-on: ubuntu-latest
