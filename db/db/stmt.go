@@ -31,6 +31,7 @@ func (s *stmt) Close() error {
 }
 
 // Exec executes a prepared statement with the given arguments
+
 // and returns a Result summarizing the effect of the statement.
 // Exec uses the master as the underlying physical db.
 func (s *stmt) Exec(args ...interface{}) (sql.Result, error) {
