@@ -12,6 +12,7 @@ func TestGetAttribute(t *testing.T) {
 		driverName string
 		expected   attribute.KeyValue
 	}{
+
 		{"mysql", semconv.DBSystemMySQL},
 		{"postgres", semconv.DBSystemPostgreSQL},
 		{"sqlite3", semconv.DBSystemSqlite},
